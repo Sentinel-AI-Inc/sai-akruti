@@ -21,28 +21,41 @@ SettingsSourceType = Literal[
 ]
 
 default_source_config: List[Dict[str, Any]] = [
-    # 1. .env file example
+    # 3. INIT settings example
     {
-        "type": "dotenv",
-        "files": ["config/.env", "config/.env.local"]
-    },
-    # 2. AWS Secrets Manager example
-    {
-        "type": "secrets",
+        "type": "init",
         "secret_ids": ["my/secret/id1", "my/secret/id2"],
         "region": "us-west-2"
     },
-    # 3. AWS SSM Parameter Store example
+    # 2. ENV settings example
     {
-        "type": "ssm",
-        "prefixes": ["/myapp/config/", "/common/secrets/"],
+        "type": "env",
+        "secret_ids": ["my/secret/id1", "my/secret/id2"],
         "region": "us-west-2"
+    },
+    # 3. .env file example
+    {
+        "type": "dotenv",
+        "files": ["config/.env", "config/.env.local"]
     },
     # 4. File-based secrets example (usually Docker secrets)
     {
         "type": "filesecrets",
         "files": ["./secrets/config.json"]  # Example for file-based secret sources
-    }
+    },
+    # 5. AWS SSM Parameter Store example
+    {
+        "type": "ssm",
+        "prefixes": ["/myapp/config/", "/common/secrets/"],
+        "region": "us-west-2"
+    },
+    # 6. AWS Secrets Manager example
+    {
+        "type": "secrets",
+        "secret_ids": ["my/secret/id1", "my/secret/id2"],
+        "region": "us-west-2"
+    },
+
 ]
 
 
@@ -126,6 +139,7 @@ class Settings(BaseSettings):
                  source_config: List[Dict[str, Any]],
                  **kwargs: Any):
         """Initialize settings with explicit sources configuration."""
+        self.__class__.source_config = source_config
         super().__init__(**kwargs)
 
     @classmethod
