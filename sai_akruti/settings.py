@@ -1,11 +1,10 @@
 import os
 from pathlib import Path
-from typing import List, Tuple, Literal, Dict, Any, ClassVar, Type
+from typing import List, Tuple, Literal, Dict, Any, ClassVar
 
 from pydantic import AnyHttpUrl, HttpUrl, AfterValidator
-from typing_extensions import Annotated
-
 from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource
+from typing_extensions import Annotated
 
 from sources import MultiDotEnvSettingsSource, SSMSettingsSource, SecretsManagerSettingsSource
 
@@ -21,15 +20,54 @@ SettingsSourceType = Literal[
     "file_secrets"
 ]
 
+default_source_config: List[Dict[str, Any]] = [
+    # 1. .env file example
+    {
+        "type": "dotenv",
+        "files": ["config/.env", "config/.env.local"]
+    },
+    # 2. AWS Secrets Manager example
+    {
+        "type": "secrets",
+        "secret_ids": ["my/secret/id1", "my/secret/id2"],
+        "region": "us-west-2"
+    },
+    # 3. AWS SSM Parameter Store example
+    {
+        "type": "ssm",
+        "prefixes": ["/myapp/config/", "/common/secrets/"],
+        "region": "us-west-2"
+    },
+    # 4. File-based secrets example (usually Docker secrets)
+    {
+        "type": "filesecrets",
+        "files": ["./secrets/config.json"]  # Example for file-based secret sources
+    }
+]
+
 
 class Settings(BaseSettings):
     """ Common configuration parameters shared between all environments.
 
+    The settings class is designed to be flexible and extensible. You can define your own settings variables
+    and use the `source_config` parameter to specify the priority/order to load them.
+
+    This class is used to read configuration parameters from various sources, including:
+    - the derived classes
+    - this class
+    - environment variables
+    - .env (dotenv) files
+    - secret files
+    - AWS SSM Parameter Store (if available)
+    - AWS Secrets Manager (if available)
+
     Read configuration parameters defined in this class, and from
     ENVIRONMENT variables and from the .env file.
 
-    The source priority is changed (from default) to the following
-    order (from highest to lowest)::
+    This file extends Pydantic's BaseSettings to provide a flexible settings management system
+    that allows multiple .env files and AWS' SSM Parameter Store and Secrets Manager.
+
+    The following source can be used to load settings in the specified priority:
       - init_settings
       - dotenv_settings
       - env_settings
@@ -40,7 +78,13 @@ class Settings(BaseSettings):
     The following environment variables should already be defined::
       - HOSTNAME (on Linux servers only - set by OS)
       - COMPUTERNAME (on Windows servers only - set by OS)
-      - ENVIRONMENT (on all servers - "dev" is default when missing)
+
+    If using AWS Services like Parameter Store or Secrets Manager, this library
+    will automatically use boto3's standard credential chain:
+      - Environment Variables(AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, etc.)
+      - ~/.aws/credentials or configured profiles (via aws configure).
+      - IAM Role on EC2, Lambda, or ECS (via Instance Metadata Service).
+      - AWS CLI SSO or other advanced credential providers.
 
     Path where your <environment>.env file should be placed::
       - linux: /home/<user>/.local
@@ -54,19 +98,12 @@ class Settings(BaseSettings):
 
     You know you are running in Docker when the "/.dockerenv" file exists.
 
-    Sources: You can configure the sources and order of priority for settings loading.
-                    sources = configureSources(
-                        DevSettings,
-                        env_files=["config/.env", "config/.env.dev"],
-                        ssm_prefixes=["/myapp/dev/"],
-                        secret_ids=["myapp/dev/secret1", "myapp/dev/secret2"],
-                    )
+    This class can be used as a base class for other settings classes, such as `LocalSettings`, `DevSettings` and
+    setup multiple settings variables and pick the one based on the environment.
 
-    You can also setup multiple settings variables and pick the one based on the environment.
     For example, you can have `DefaultSettings` class for common settings and derive `DevSettings`, `ProdSettings`
     to override the sources_config for each.
 
-    Finally, you can use:
              _setup: dict[str, Type[LocalSettings | DevSettings | QASettings | ProdSettings]] = dict(
                     local=LocalSettings or DefaultSettings,
                     dev=DevSettings,
@@ -79,26 +116,40 @@ class Settings(BaseSettings):
             settings = _setup[ENVIRONMENT]()
 
     """
-
-    sources_config: ClassVar[List[Dict[str, Any]]] = [
-        {"type": "init"},
-        {"type": "dotenv", "env_files": ["config/.env"]},
-        {"type": "env"},
-        {"type": "file_secrets", "secrets_dir": None},  # None means default auto-detection
-    ]
-
     model_config = SettingsConfigDict(
         extra='ignore',  # Allow/ignore/forbid extra fields here
     )
 
+    source_config: ClassVar[List[Dict[str, Any]]] = default_source_config
+
+    def __init__(self,
+                 source_config: List[Dict[str, Any]],
+                 **kwargs: Any):
+        """Initialize settings with explicit sources configuration."""
+        super().__init__(**kwargs)
+
     @classmethod
-    def configureSources(cls, settings_cls: Type[BaseSettings]) -> Tuple[PydanticBaseSettingsSource, ...]:
-        """Configure settings sources explicitly in the desired priority order."""
+    def settings_customise_sources(
+            cls,
+            settings_cls: type[BaseSettings],
+            init_settings: PydanticBaseSettingsSource,
+            env_settings: PydanticBaseSettingsSource,
+            dotenv_settings: PydanticBaseSettingsSource,
+            file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        # Custom sources after init and env (which are automatically included)
         sources: List[PydanticBaseSettingsSource] = []
-        for src in cls.sources_config:
-            src_type = src["type"]
-            if src_type == "dotenv":
-                env_files = [Path(f) for f in src["env_files"]]
+        for src in cls.source_config:
+            src_type = src.get("type", "init")
+            if src_type == "init":
+                sources.append(init_settings)
+            if src_type == "env":
+                sources.append(env_settings)
+            elif src_type == "env" or src_type == "dotenv":
+                env_files = [Path(f) for f in src.get("files", "config/.env")]
+                sources.append(MultiDotEnvSettingsSource(settings_cls, env_files))
+            elif src_type == "filesecrets":
+                env_files = [Path(f) for f in src.get("files", cls._getSecretsDir())]
                 sources.append(MultiDotEnvSettingsSource(settings_cls, env_files))
             elif src_type == "ssm":
                 sources.append(SSMSettingsSource(
@@ -112,23 +163,8 @@ class Settings(BaseSettings):
                 raise ValueError(f"Unknown source type: {src_type}")
         return tuple(sources)
 
-    @classmethod
-    def settings_customise_sources(cls,
-                                   settings_cls: Type[BaseSettings],
-                                   init_settings: PydanticBaseSettingsSource,
-                                   env_settings: PydanticBaseSettingsSource,
-                                   dotenv_settings: PydanticBaseSettingsSource,
-                                   file_secret_settings: PydanticBaseSettingsSource
-                                   ) -> Tuple[PydanticBaseSettingsSource, ...]:
-        """Customize loading order, adding custom sources before env/dotenv/secret defaults."""
-        return cls.configureSources(settings_cls) + (
-            env_settings,
-            dotenv_settings,
-            file_secret_settings,
-        )
-
     @staticmethod
-    def getSecretsDir() -> str:
+    def _getSecretsDir() -> str:
         """Determine secrets directory based on Docker/non-Docker context."""
         if os.path.exists('/.dockerenv'):
             return '/run/secrets'
