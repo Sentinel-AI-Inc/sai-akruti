@@ -1,0 +1,41 @@
+name: Build & Release Wheel
+
+on:
+  push:
+    tags:
+      - "v*.*.*"  # Runs on tags like v0.1.0
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write  # Needed to upload release assets
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"  # Adjust if needed
+
+      - name: Install Poetry
+        run: |
+          pip install poetry
+
+      - name: Install Dependencies
+        run: |
+          poetry install --no-root
+
+      - name: Build Wheel
+        run: |
+          poetry build -f wheel
+
+      - name: Upload Wheel to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.whl
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

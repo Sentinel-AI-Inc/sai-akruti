@@ -43,3 +43,6 @@
 
 # Virtual Environments
 .venv/
+dist/
+build/
+*.egg-info/
