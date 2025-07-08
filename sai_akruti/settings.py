@@ -24,14 +24,10 @@ default_source_config: List[Dict[str, Any]] = [
     # 3. INIT settings example
     {
         "type": "init",
-        "secret_ids": ["my/secret/id1", "my/secret/id2"],
-        "region": "us-west-2"
     },
     # 2. ENV settings example
     {
         "type": "env",
-        "secret_ids": ["my/secret/id1", "my/secret/id2"],
-        "region": "us-west-2"
     },
     # 3. .env file example
     {
