@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import List, Tuple, Literal, Dict, Any, ClassVar
+from typing import List, Literal, Dict, Any, ClassVar
 
 from pydantic import AnyHttpUrl, HttpUrl, AfterValidator
 from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource
