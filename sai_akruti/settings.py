@@ -6,7 +6,7 @@ from pydantic import AnyHttpUrl, HttpUrl, AfterValidator
 from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource
 from typing_extensions import Annotated
 
-from sources import MultiDotEnvSettingsSource, SSMSettingsSource, SecretsManagerSettingsSource
+from .sources import MultiDotEnvSettingsSource, SSMSettingsSource, SecretsManagerSettingsSource
 
 AnyHttpUrlString = Annotated[AnyHttpUrl, AfterValidator(lambda v: str(v))]
 HttpUrlString = Annotated[HttpUrl, AfterValidator(lambda v: str(v))]
