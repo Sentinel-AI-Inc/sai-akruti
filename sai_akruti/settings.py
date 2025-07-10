@@ -150,12 +150,12 @@ class Settings(BaseSettings):
         # Custom sources after init and env (which are automatically included)
         sources: List[PydanticBaseSettingsSource] = []
         for src in cls.source_config:
-            src_type = src.get("type", "init")
+            src_type = src.get("srctype", "init")
             if src_type == "init":
                 sources.append(init_settings)
-            if src_type == "env":
+            elif src_type == "env":
                 sources.append(env_settings)
-            elif src_type == "env" or src_type == "dotenv":
+            elif src_type == "dotenv":
                 env_files = [Path(f) for f in src.get("files", "config/.env")]
                 sources.append(MultiDotEnvSettingsSource(settings_cls, env_files))
             elif src_type == "filesecrets":
