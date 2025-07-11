@@ -10,7 +10,7 @@ packages = [{ include = "sai_akruti" }]
 [tool.poetry.dependencies]
 python = "^3.10"
 pydantic-settings = "^2.0.0"
-boto3 = "^1.39.3"
+boto3 = "^1.39.4"
 poetry-core = "^2.1.3"
 
 [tool.poetry.group.dev.dependencies]
