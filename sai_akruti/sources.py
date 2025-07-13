@@ -1,14 +1,14 @@
 import json
-from pydantic import fields
-
-from pydantic_settings import PydanticBaseSettingsSource, BaseSettings
+import time
 from abc import ABC
 from pathlib import Path
 from typing import Any, Dict, List, Type
-from dotenv import dotenv_values
 
 import boto3
 import botocore.exceptions
+from dotenv import dotenv_values
+from pydantic import fields
+from pydantic_settings import PydanticBaseSettingsSource, BaseSettings
 
 
 def _process_parameter_value(full_path: str, value: Any, param_type: str) -> Dict[str, Any]:
@@ -57,12 +57,21 @@ class MultiDotEnvSettingsSource(PydanticBaseSettingsSource, ABC):
 class SSMSettingsSource(PydanticBaseSettingsSource, ABC):
     """Load from AWS SSM Parameter Store, supporting multiple prefixes."""
 
-    def __init__(self, settings_cls: Type[BaseSettings], prefixes: List[str], region: str = "us-west-2"):
+    def __init__(
+            self,
+            settings_cls: Type[BaseSettings],
+            prefixes: List[str],
+            region: str = "us-west-2",
+            ttl: int = 300
+    ):
         super().__init__(settings_cls)
         self.prefixes = prefixes
         self.client = boto3.client("ssm", region_name=region)
+        self.ttl_seconds = ttl
+        self._last_loaded: float = 0
+        self._cached_data: Dict[str, Any] = {}
 
-    def __call__(self) -> Dict[str, Any]:
+    def _fetch_data(self) -> Dict[str, Any]:
         data: Dict[str, Any] = {}
 
         for prefix in self.prefixes:
@@ -91,6 +100,20 @@ class SSMSettingsSource(PydanticBaseSettingsSource, ABC):
                     continue  # Optional: log missing parameter
 
         return data
+
+    @property
+    def _should_reload(self) -> bool:
+        return time.time() - self._last_loaded > self.ttl_seconds
+
+    @property
+    def ssm_data(self) -> Dict[str, Any]:
+        if not self._cached_data or self._should_reload:
+            self._cached_data = self._fetch_data()
+            self._last_loaded = time.time()
+        return self._cached_data
+
+    def __call__(self) -> Dict[str, Any]:
+        return self.ssm_data
 
     def get_field_value(self, field: fields.FieldInfo, field_name: str) -> tuple[Any, str, bool]:
         data = self()
