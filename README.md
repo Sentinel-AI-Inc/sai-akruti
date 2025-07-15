@@ -93,3 +93,15 @@ To retrieve the AWS Account ID in your code:
 import boto3
 account_id = boto3.client("sts").get_caller_identity()["Account"]
 ```
+
+**How to release to PyPI manually:**
+To release a new version to PyPI, follow these steps:
+1. Update the version in `pyproject.toml`.
+2. Build the package:
+   ```bash
+   python -m build
+   ```
+3. Upload to PyPI:
+   ```bash
+    python publish
+    ```

@@ -17,17 +17,15 @@ def _process_parameter_value(key: str, value: Any, param_type: str) -> Dict[str,
 
     if param_type == "StringList":
         # Value should already be a comma-separated string; split into list
-        result[key] = value.split(",")
+        result[key] = [v.strip() for v in value.split(",")]
     else:
         # String or SecureString — try to load JSON dict
         try:
             value_dict = json.loads(value)
-            if isinstance(value_dict, dict):
-                result.update(value_dict)  # Unpack dict keys
-            else:
-                result[key] = value  # Non-dict JSON (e.g., str, list, etc.)
+            parsed = json.loads(value)
+            result[key] = parsed  # assign parsed value directly, even if dict or list
         except (json.JSONDecodeError, TypeError):
-            result[key] = value  # Non-JSON string fallback
+            result[key] = value  # fallback to raw string
 
     return result
 
