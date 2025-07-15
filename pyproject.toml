@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "sai-akruti"
-version = "0.3.1"
+version = "0.3.2"
 description = "Centralized Settings Loader for Python Apps"
 authors = ["Manish Chitnis <mnc@sentinelrisk.ai>"]
 license = "MIT"

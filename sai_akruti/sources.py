@@ -22,8 +22,10 @@ def _process_parameter_value(key: str, value: Any, param_type: str) -> Dict[str,
         # String or SecureString — try to load JSON dict
         try:
             value_dict = json.loads(value)
-            parsed = json.loads(value)
-            result[key] = parsed  # assign parsed value directly, even if dict or list
+            if isinstance(value_dict, dict):
+                result.update(value_dict)  # Unpack dict keys
+            else:
+                result[key] = value  # Non-dict JSON (e.g., str, list, etc.)
         except (json.JSONDecodeError, TypeError):
             result[key] = value  # fallback to raw string
 
