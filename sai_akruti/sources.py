@@ -23,7 +23,12 @@ def _process_parameter_value(key: str, value: Any, param_type: str) -> Dict[str,
         try:
             value_dict = json.loads(value)
             if isinstance(value_dict, dict):
-                result.update(value_dict)  # Unpack dict keys
+                # Optional: use keyName if present
+                keyName = value_dict.pop("keyName", None)
+                if keyName is None:
+                    result.update(value_dict)  # Unpack dict keys
+                else:
+                    result[keyName] = value_dict
             else:
                 result[key] = value  # Non-dict JSON (e.g., str, list, etc.)
         except (json.JSONDecodeError, TypeError):
@@ -81,7 +86,7 @@ class SSMSettingsSource(PydanticBaseSettingsSource, ABC):
                     for param in page.get("Parameters", []):
                         full_path = param["Name"]
                         result = _process_parameter_value(
-                            full_path.rsplit("/", 1)[-1].upper(),
+                            full_path,
                             param.get("Value", ""),
                             param.get("Type", "String")
                         )
@@ -91,7 +96,7 @@ class SSMSettingsSource(PydanticBaseSettingsSource, ABC):
                     response = self.client.get_parameter(Name=prefix, WithDecryption=True)
                     param = response.get("Parameter", {})
                     result = _process_parameter_value(
-                        prefix.rsplit("/", 1)[-1].upper(),
+                        prefix,
                         param.get("Value", ""),
                         param.get("Type", "String")
                     )
