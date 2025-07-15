@@ -105,3 +105,10 @@ To release a new version to PyPI, follow these steps:
    ```bash
     python publish
     ```
+
+--------------
+*Special Note:*
+- For SSM, if the parameter is defined as a String or SecretString and is a dict 
+  which has "keyName" as one of its keys, then it will be used as the key for the settings. 
+  Otherwise, the dictionary will be unpacked and each key will be used as a setting.
+
