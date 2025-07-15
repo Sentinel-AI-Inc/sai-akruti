@@ -11,13 +11,13 @@ from pydantic import fields
 from pydantic_settings import PydanticBaseSettingsSource, BaseSettings
 
 
-def _process_parameter_value(full_path: str, value: Any, param_type: str) -> Dict[str, Any]:
+def _process_parameter_value(key: str, value: Any, param_type: str) -> Dict[str, Any]:
     """Process already-decrypted parameter value based on its type."""
     result = {}
 
     if param_type == "StringList":
         # Value should already be a comma-separated string; split into list
-        result[full_path] = value.split(",")
+        result[key] = value.split(",")
     else:
         # String or SecureString — try to load JSON dict
         try:
@@ -25,9 +25,9 @@ def _process_parameter_value(full_path: str, value: Any, param_type: str) -> Dic
             if isinstance(value_dict, dict):
                 result.update(value_dict)  # Unpack dict keys
             else:
-                result[full_path] = value  # Non-dict JSON (e.g., str, list, etc.)
+                result[key] = value  # Non-dict JSON (e.g., str, list, etc.)
         except (json.JSONDecodeError, TypeError):
-            result[full_path] = value  # Non-JSON string fallback
+            result[key] = value  # Non-JSON string fallback
 
     return result
 
@@ -81,7 +81,7 @@ class SSMSettingsSource(PydanticBaseSettingsSource, ABC):
                     for param in page.get("Parameters", []):
                         full_path = param["Name"]
                         result = _process_parameter_value(
-                            full_path,
+                            full_path.rsplit("/", 1)[-1].upper(),
                             param.get("Value", ""),
                             param.get("Type", "String")
                         )
@@ -91,7 +91,7 @@ class SSMSettingsSource(PydanticBaseSettingsSource, ABC):
                     response = self.client.get_parameter(Name=prefix, WithDecryption=True)
                     param = response.get("Parameter", {})
                     result = _process_parameter_value(
-                        prefix,
+                        prefix.rsplit("/", 1)[-1].upper(),
                         param.get("Value", ""),
                         param.get("Type", "String")
                     )
