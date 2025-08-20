@@ -11,13 +11,23 @@ from pydantic import fields
 from pydantic_settings import PydanticBaseSettingsSource, BaseSettings
 
 
+def _deep_merge(dst: dict, src: dict) -> dict:
+    for k, v in src.items():
+        if k in dst and isinstance(dst[k], dict) and isinstance(v, dict):
+            _deep_merge(dst[k], v)
+        else:
+            dst[k] = v
+    return dst
+
+
 def _process_parameter_value(key: str, value: Any, param_type: str) -> Dict[str, Any]:
     """Process already-decrypted parameter value based on its type."""
     result = {}
 
     if param_type == "StringList":
         # Value should already be a comma-separated string; split into list
-        result[key] = [v.strip() for v in value.split(",")]
+        items = [v.strip() for v in value.split(",")]
+        result[key] = [v for v in items if v]
     else:
         # String or SecureString — try to load JSON dict
         try:
@@ -26,7 +36,7 @@ def _process_parameter_value(key: str, value: Any, param_type: str) -> Dict[str,
                 # Optional: use keyName if present
                 keyName = value_dict.pop("keyName", None)
                 if keyName is None:
-                    result.update(value_dict)  # Unpack dict keys
+                    result[key] = value_dict  # Unpack dict keys
                 else:
                     result[keyName] = value_dict
             else:
@@ -67,7 +77,8 @@ class SSMSettingsSource(PydanticBaseSettingsSource, ABC):
             settings_cls: Type[BaseSettings],
             prefixes: List[str],
             region: str = "us-west-2",
-            ttl: int = 300
+            merge: bool = True,
+            ttl: int = 300,
     ):
         super().__init__(settings_cls)
         self.prefixes = prefixes
@@ -75,9 +86,22 @@ class SSMSettingsSource(PydanticBaseSettingsSource, ABC):
         self.ttl_seconds = ttl
         self._last_loaded: float = 0
         self._cached_data: Dict[str, Any] = {}
+        self._merge = merge
 
     def _fetch_data(self) -> Dict[str, Any]:
         data: Dict[str, Any] = {}
+
+        def fold(r: Dict[str, Any]) -> None:
+            for k, v in r.items():
+                if (
+                        self._merge
+                        and k in data
+                        and isinstance(data[k], dict)
+                        and isinstance(v, dict)
+                ):
+                    _deep_merge(data[k], v)
+                else:
+                    data[k] = v
 
         for prefix in self.prefixes:
             if prefix.endswith("/"):
@@ -90,7 +114,7 @@ class SSMSettingsSource(PydanticBaseSettingsSource, ABC):
                             param.get("Value", ""),
                             param.get("Type", "String")
                         )
-                        data.update(result)
+                        fold(result)
             else:
                 try:
                     response = self.client.get_parameter(Name=prefix, WithDecryption=True)
@@ -100,7 +124,7 @@ class SSMSettingsSource(PydanticBaseSettingsSource, ABC):
                         param.get("Value", ""),
                         param.get("Type", "String")
                     )
-                    data.update(result)
+                    fold(result)
                 except self.client.exceptions.ParameterNotFound:
                     continue  # Optional: log missing parameter
 

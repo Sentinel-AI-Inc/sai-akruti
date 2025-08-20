@@ -152,7 +152,10 @@ class Settings(BaseSettings):
         for src in cls.source_config:
             src_type = src.get("srctype", "init")
             if src_type == "init":
-                sources.append(init_settings)
+                if "data" in src:
+                    sources.append(PydanticBaseSettingsSource(src["data"]))
+                else:
+                    sources.append(init_settings)
             elif src_type == "env":
                 sources.append(env_settings)
             elif src_type == "dotenv":
@@ -163,7 +166,7 @@ class Settings(BaseSettings):
                 sources.append(MultiDotEnvSettingsSource(settings_cls, env_files))
             elif src_type == "ssm":
                 sources.append(SSMSettingsSource(
-                    cls, prefixes=src["prefixes"], region=src.get("region", "us-west-2")
+                    cls, prefixes=src["prefixes"], region=src.get("region", "us-west-2"), merge=src.get("merge", True)
                 ))
             elif src_type == "secrets":
                 sources.append(SecretsManagerSettingsSource(
