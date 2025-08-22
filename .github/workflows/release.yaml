@@ -11,6 +11,7 @@ jobs:
 
     permissions:
       contents: write  # Needed to upload release assets
+      id-token: write
 
     steps:
       - name: Checkout repository
@@ -39,3 +40,8 @@ jobs:
           files: dist/*.whl
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # --- Publish to PyPI via OIDC (no token needed) ---
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        # no "with:" needed when using OIDC Trusted Publishing
