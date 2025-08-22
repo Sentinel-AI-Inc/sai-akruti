@@ -131,11 +131,11 @@ class Settings(BaseSettings):
 
     source_config: ClassVar[List[Dict[str, Any]]] = default_source_config
 
-    def __init__(self,
-                 source_config: List[Dict[str, Any]],
+    def __init__(self, *,
+                 source_config: List[Dict[str, Any]] | None,
                  **kwargs: Any):
         """Initialize settings with explicit sources configuration."""
-        self.__class__.source_config = source_config
+        self.__class__.source_config = source_config or default_source_config
         super().__init__(**kwargs)
 
     @classmethod
