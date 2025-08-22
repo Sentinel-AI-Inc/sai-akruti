@@ -30,11 +30,11 @@ jobs:
         run: |
           poetry install --no-root
 
-      - name: Build Wheel
+      - name: Build Wheel + sdist
         run: |
-          poetry build -f wheel
+          poetry build
 
-      - name: Upload Wheel to GitHub Release
+      - name: Upload artifacts to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*.whl
@@ -44,4 +44,5 @@ jobs:
       # --- Publish to PyPI via OIDC (no token needed) ---
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-        # no "with:" needed when using OIDC Trusted Publishing
+        #with:
+        #    repository-url: https://test.pypi.org/legacy/

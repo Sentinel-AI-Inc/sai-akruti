@@ -20,7 +20,12 @@ def _deep_merge(dst: dict, src: dict) -> dict:
     return dst
 
 
-def _process_parameter_value(key: str, value: Any, param_type: str) -> Dict[str, Any]:
+def _process_parameter_value(
+        key: str,
+        value: Any,
+        param_type: str,
+        flatten_root: bool = False
+) -> Dict[str, Any]:
     """Process already-decrypted parameter value based on its type."""
     result = {}
 
@@ -28,21 +33,26 @@ def _process_parameter_value(key: str, value: Any, param_type: str) -> Dict[str,
         # Value should already be a comma-separated string; split into list
         items = [v.strip() for v in value.split(",")]
         result[key] = [v for v in items if v]
+        return result
+
+    # String or SecureString — try to load JSON dict
+    try:
+        value_dict = json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        result[key] = value  # fallback to raw string
+        return result
+
+    if isinstance(value_dict, dict):
+        # Optional: use keyName if present
+        keyName = value_dict.pop("keyName", None)
+        if flatten_root and keyName is None:
+            result.update(value_dict)
+        elif keyName is None:
+            result[key] = value_dict  # Unpack dict keys
+        else:
+            result[keyName] = value_dict
     else:
-        # String or SecureString — try to load JSON dict
-        try:
-            value_dict = json.loads(value)
-            if isinstance(value_dict, dict):
-                # Optional: use keyName if present
-                keyName = value_dict.pop("keyName", None)
-                if keyName is None:
-                    result[key] = value_dict  # Unpack dict keys
-                else:
-                    result[keyName] = value_dict
-            else:
-                result[key] = value  # Non-dict JSON (e.g., str, list, etc.)
-        except (json.JSONDecodeError, TypeError):
-            result[key] = value  # fallback to raw string
+        result[key] = value  # Non-dict JSON (e.g., str, list, etc.)
 
     return result
 
