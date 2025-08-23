@@ -88,6 +88,7 @@ class SSMSettingsSource(PydanticBaseSettingsSource, ABC):
             prefixes: List[str],
             region: str = "us-west-2",
             merge: bool = True,
+            flatten_root: bool = False,
             ttl: int = 300,
     ):
         super().__init__(settings_cls)
@@ -97,6 +98,7 @@ class SSMSettingsSource(PydanticBaseSettingsSource, ABC):
         self._last_loaded: float = 0
         self._cached_data: Dict[str, Any] = {}
         self._merge = merge
+        self._flatten_root = flatten_root
 
     def _fetch_data(self) -> Dict[str, Any]:
         data: Dict[str, Any] = {}
@@ -122,7 +124,8 @@ class SSMSettingsSource(PydanticBaseSettingsSource, ABC):
                         result = _process_parameter_value(
                             full_path,
                             param.get("Value", ""),
-                            param.get("Type", "String")
+                            param.get("Type", "String"),
+                            flatten_root=self._flatten_root,
                         )
                         fold(result)
             else:
@@ -132,7 +135,8 @@ class SSMSettingsSource(PydanticBaseSettingsSource, ABC):
                     result = _process_parameter_value(
                         prefix,
                         param.get("Value", ""),
-                        param.get("Type", "String")
+                        param.get("Type", "String"),
+                        flatten_root=self._flatten_root,
                     )
                     fold(result)
                 except self.client.exceptions.ParameterNotFound:
