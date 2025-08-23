@@ -166,7 +166,12 @@ class Settings(BaseSettings):
                 sources.append(MultiDotEnvSettingsSource(settings_cls, env_files))
             elif src_type == "ssm":
                 sources.append(SSMSettingsSource(
-                    cls, prefixes=src["prefixes"], region=src.get("region", "us-west-2"), merge=src.get("merge", True)
+                    cls,
+                    prefixes=src["prefixes"],
+                    region=src.get("region", "us-west-2"),
+                    merge=src.get("merge", True),
+                    flatten_root=src.get("flatten_root", False),
+                    ttl=src.get("ttl", 3600),
                 ))
             elif src_type == "secrets":
                 sources.append(SecretsManagerSettingsSource(
