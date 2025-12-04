@@ -172,10 +172,14 @@ class Settings(BaseSettings):
                     merge=src.get("merge", True),
                     flatten_root=src.get("flatten_root", False),
                     ttl=src.get("ttl", 3600),
+                    aws_session=src.get("aws_session", None)
                 ))
             elif src_type == "secrets":
                 sources.append(SecretsManagerSettingsSource(
-                    cls, secret_ids=src["secret_ids"], region=src.get("region", "us-west-2")
+                    cls,
+                    secret_ids=src["secret_ids"],
+                    region=src.get("region", "us-west-2"),
+                    aws_session=src.get("aws_session", None)
                 ))
             else:
                 raise ValueError(f"Unknown source type: {src_type}")
