@@ -90,10 +90,11 @@ class SSMSettingsSource(PydanticBaseSettingsSource, ABC):
             merge: bool = True,
             flatten_root: bool = False,
             ttl: int = 300,
+            aws_session: boto3.Session | None = None
     ):
         super().__init__(settings_cls)
         self.prefixes = prefixes
-        self.client = boto3.client("ssm", region_name=region)
+        self.client = (aws_session or boto3.Session()).client("ssm", region_name=region)
         self.ttl_seconds = ttl
         self._last_loaded: float = 0
         self._cached_data: Dict[str, Any] = {}
@@ -168,10 +169,15 @@ class SSMSettingsSource(PydanticBaseSettingsSource, ABC):
 class SecretsManagerSettingsSource(PydanticBaseSettingsSource, ABC):
     """Load from AWS Secrets Manager, supporting multiple secrets."""
 
-    def __init__(self, settings_cls: Type[BaseSettings], secret_ids: List[str], region: str = "us-west-2"):
+    def __init__(self,
+                 settings_cls: Type[BaseSettings],
+                 secret_ids: List[str],
+                 region: str = "us-west-2",
+                 aws_session: boto3.Session | None = None
+                 ):
         super().__init__(settings_cls)
         self.secret_ids = secret_ids
-        self.client = boto3.client("secretsmanager", region_name=region)
+        self.client = (aws_session or boto3.Session()).client("secretsmanager", region_name=region)
 
     def __call__(self) -> Dict[str, Any]:
         data: Dict[str, Any] = {}
