@@ -2,10 +2,11 @@ import json
 import time
 from abc import ABC
 from pathlib import Path
-from typing import Any, Dict, List, Type
+from typing import Any, Dict, List, Type, Optional
 
 import boto3
 import botocore.exceptions
+import botocore.client as baseClient
 from dotenv import dotenv_values
 from pydantic import fields
 from pydantic_settings import PydanticBaseSettingsSource, BaseSettings
@@ -94,12 +95,21 @@ class SSMSettingsSource(PydanticBaseSettingsSource, ABC):
     ):
         super().__init__(settings_cls)
         self.prefixes = prefixes
-        self.client = (aws_session or boto3.Session()).client("ssm", region_name=region)
+        self._session: boto3.Session = aws_session or boto3.Session()
+        self._client: Optional[baseClient] = None
+        self._region = region
+
         self.ttl_seconds = ttl
         self._last_loaded: float = 0
         self._cached_data: Dict[str, Any] = {}
         self._merge = merge
         self._flatten_root = flatten_root
+
+    @property
+    def client(self) -> baseClient:
+        if self._client is None:
+            self._client = self._session.client("secretsmanager", region_name=self._region)
+        return self._client
 
     def _fetch_data(self) -> Dict[str, Any]:
         data: Dict[str, Any] = {}
@@ -177,7 +187,15 @@ class SecretsManagerSettingsSource(PydanticBaseSettingsSource, ABC):
                  ):
         super().__init__(settings_cls)
         self.secret_ids = secret_ids
-        self.client = (aws_session or boto3.Session()).client("secretsmanager", region_name=region)
+        self._region = region
+        self._session: boto3.Session = aws_session or boto3.Session()
+        self._client: Optional[baseClient] = None
+
+    @property
+    def client(self) -> baseClient:
+        if self._client is None:
+            self._client = self._session.client("secretsmanager", region_name=self._region)
+        return self._client
 
     def __call__(self) -> Dict[str, Any]:
         data: Dict[str, Any] = {}

@@ -2,7 +2,10 @@
 # ---- Config ---------------------------------------------------------------
 REPOSITORY ?= pypi           # or: testpypi
 DIST_DIR   ?= dist
-VERSION    := $(shell poetry version -s)
+POETRY 	   := $(HOME)/.local/bin/poetry
+VERSION    := $(shell $(POETRY) version -s)
+
+REPOSITORY := $(strip $(REPOSITORY))
 
 # ---- Phony targets --------------------------------------------------------
 .PHONY: help clean check build publish publish-test release version \
@@ -18,13 +21,17 @@ clean: ## Remove build artifacts
 	rm -rf $(DIST_DIR) build *.egg-info
 
 check: ## Validate pyproject & lockfile
-	poetry check
+	$(POETRY) check
 
 build: clean check ## Build sdist & wheel into ./dist
-	poetry build
+	$(POETRY) build
 
 publish: build ## Publish to $(REPOSITORY) (requires Poetry token/config)
-	poetry publish -r $(REPOSITORY)
+ifeq ($(REPOSITORY),pypi)
+	$(POETRY) publish
+else
+	$(POETRY) publish -r $(REPOSITORY)
+endif
 
 publish-test: ## Build & publish to TestPyPI
 	$(MAKE) publish REPOSITORY=testpypi
@@ -37,15 +44,15 @@ version: ## Print project version
 	@echo $(VERSION)
 
 bump-patch: ## Bump patch version (x.y.Z)
-	poetry version patch
+	$(POETRY) version patch
 	@echo "New version: $$(poetry version -s)"
 
 bump-minor: ## Bump minor version (x.Y.0)
-	poetry version minor
+	$(POETRY) version minor
 	@echo "New version: $$(poetry version -s)"
 
 bump-major: ## Bump major version (X.0.0)
-	poetry version major
+	$(POETRY) version major
 	@echo "New version: $$(poetry version -s)"
 
 tag: ## Create and push git tag v$(VERSION)
@@ -55,12 +62,12 @@ tag: ## Create and push git tag v$(VERSION)
 # ---- Optional helpers -----------------------------------------------------
 
 repo-test-setup: ## Add TestPyPI repository to Poetry (one-time)
-	poetry config repositories.testpypi https://test.pypi.org/legacy/
+	$(POETRY) config repositories.testpypi https://test.pypi.org/legacy/
 
 login-pypi: ## Configure PyPI token in Poetry (uses POETRY_PYPI_TOKEN_PYPI)
 	@test -n "$$POETRY_PYPI_TOKEN_PYPI" || { echo "Set POETRY_PYPI_TOKEN_PYPI first"; exit 1; }
-	poetry config pypi-token.pypi "$$POETRY_PYPI_TOKEN_PYPI"
+	$(POETRY) config pypi-token.pypi "$$POETRY_PYPI_TOKEN_PYPI"
 
 login-testpypi: ## Configure TestPyPI token in Poetry (uses POETRY_PYPI_TOKEN_TESTPYPI)
 	@test -n "$$POETRY_PYPI_TOKEN_TESTPYPI" || { echo "Set POETRY_PYPI_TOKEN_TESTPYPI first"; exit 1; }
-	poetry config pypi-token.testpypi "$$POETRY_PYPI_TOKEN_TESTPYPI"
+	$(POETRY) config pypi-token.testpypi "$$POETRY_PYPI_TOKEN_TESTPYPI"
