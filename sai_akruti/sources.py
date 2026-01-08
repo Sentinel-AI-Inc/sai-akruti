@@ -108,7 +108,7 @@ class SSMSettingsSource(PydanticBaseSettingsSource, ABC):
     @property
     def client(self) -> baseClient:
         if self._client is None:
-            self._client = self._session.client("secretsmanager", region_name=self._region)
+            self._client = self._session.client("ssm", region_name=self._region)
         return self._client
 
     def _fetch_data(self) -> Dict[str, Any]:
