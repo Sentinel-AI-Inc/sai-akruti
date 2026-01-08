@@ -15,6 +15,12 @@ boto3 = "^1.40.15"
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
 
+
+[[tool.poetry.source]]
+name = "codeartifact"
+url = "https://sentinel-ai-795460539818.d.codeartifact.us-west-2.amazonaws.com/pypi/sai-sagar/simple/"
+priority = "explicit"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
